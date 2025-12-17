@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.3.0
+// @version      2.4.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
