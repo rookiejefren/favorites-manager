@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.9.0
+// @version      3.0.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
@@ -714,13 +714,17 @@
             }
         }
 
-        // 清理标题：去除换行符、多余空格，只保留第一行作为标题
+        // 清理标题：去除换行符、多余空格、点赞数等无关信息
         function cleanTitle(text) {
             if (!text) return null;
             // 按换行符分割，取第一行作为标题
             const firstLine = text.split(/[\r\n]+/)[0];
-            // 去除多余空格，限制长度
-            const cleaned = firstLine.trim().substring(0, 100);
+            // 去除点赞数等数字信息（如 "1.2万"、"10w"、纯数字等）
+            let cleaned = firstLine
+                .replace(/^\d+(\.\d+)?[万wW]?\s*/g, '')  // 开头的点赞数
+                .replace(/\s*\d+(\.\d+)?[万wW]?$/g, '')  // 结尾的点赞数
+                .trim()
+                .substring(0, 100);
             return cleaned || null;
         }
 
