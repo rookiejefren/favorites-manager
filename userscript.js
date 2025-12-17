@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.4.0
+// @version      2.5.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
@@ -415,18 +415,16 @@
             content += `---\n\n`;
 
             favoritesData.forEach((item, index) => {
-                content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
+                // B站使用播放量和时长作为链接文本，其他平台使用标题
+                if (item.platform === 'bilibili' && (item.playCount || item.duration)) {
+                    const linkText = [item.playCount, item.duration].filter(Boolean).join(' | ') || item.title;
+                    content += `### ${index + 1}. [${linkText}](${item.url})\n\n`;
+                    content += `- **标题**: ${item.title}\n`;
+                } else {
+                    content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
+                }
                 if (item.author || item.uploader) {
                     content += `- **作者**: ${item.author || item.uploader}\n`;
-                }
-                // B站显示粉丝数和时长
-                if (item.platform === 'bilibili') {
-                    if (item.followers) {
-                        content += `- **粉丝数**: ${item.followers}\n`;
-                    }
-                    if (item.duration) {
-                        content += `- **时长**: ${item.duration}\n`;
-                    }
                 }
                 content += `\n`;
             });
@@ -699,6 +697,15 @@
             }
         }
 
+        // 清理标题：去除换行符、多余空格，只保留第一行作为标题
+        function cleanTitle(text) {
+            if (!text) return '未知标题';
+            // 按换行符分割，取第一行作为标题
+            const firstLine = text.split(/[\r\n]+/)[0];
+            // 去除多余空格，限制长度
+            return firstLine.trim().substring(0, 100) || '未知标题';
+        }
+
         if (items.length === 0) {
             const allLinks = document.querySelectorAll('a[href*="/video/"]');
             allLinks.forEach(link => {
@@ -708,7 +715,7 @@
                            link.textContent ||
                            '未知标题';
 
-                title = title.trim().substring(0, 100);
+                title = cleanTitle(title);
 
                 if (url && !favorites.find(f => f.url === url)) {
                     favorites.push({
@@ -733,7 +740,7 @@
                                link.getAttribute('title') ||
                                '未知标题';
 
-                    title = title.trim().substring(0, 100);
+                    title = cleanTitle(title);
 
                     if (!favorites.find(f => f.url === url)) {
                         favorites.push({
@@ -805,13 +812,13 @@
                 // 去掉首尾空格并限制标题最长 100 字符
                 title = title.trim().substring(0, 100);
 
-                // 尝试从父级容器获取视频时长和粉丝数
+                // 尝试从父级容器获取视频时长和播放量
                 const parentItem = link.closest('.item, .media-item, .list-item, .small-item, .fav-item');
                 let duration = '';
-                let followers = '';
+                let playCount = '';
                 if (parentItem) {
                     duration = parentItem.querySelector('.length, .duration, .time, .video-duration, span[class*="duration"]')?.textContent?.trim() || '';
-                    followers = parentItem.querySelector('.up-name + span, .fans, .follower, span[class*="fans"]')?.textContent?.trim() || '';
+                    playCount = parentItem.querySelector('.play-count, .view, .play, span[class*="play"], span[class*="view"]')?.textContent?.trim() || '';
                 }
 
                 // 只保留标题正常且确认为视频页面的链接
@@ -821,7 +828,7 @@
                         title: title,                          // 视频标题
                         url: url,                              // 视频链接
                         duration: duration,                    // 视频时长
-                        followers: followers,                  // 粉丝数
+                        playCount: playCount,                  // 播放量
                     });
                 }
             });
@@ -853,8 +860,8 @@
                     // 获取视频时长
                     const duration = item.querySelector('.length, .duration, .time, .video-duration, span[class*="duration"]')?.textContent?.trim() || '';
 
-                    // 获取粉丝数（如果有的话）
-                    const followers = item.querySelector('.up-name + span, .fans, .follower, span[class*="fans"]')?.textContent?.trim() || '';
+                    // 获取播放量
+                    const playCount = item.querySelector('.play-count, .view, .play, span[class*="play"], span[class*="view"]')?.textContent?.trim() || '';
 
                     // 标题去空格并截断长度
                     title = title.trim().substring(0, 100);
@@ -867,7 +874,7 @@
                             url: url,                              // 视频链接
                             uploader: uploader.trim(),             // UP 主
                             duration: duration,                    // 视频时长
-                            followers: followers,                  // 粉丝数
+                            playCount: playCount,                  // 播放量
                         });
                     }
                 } catch (e) {
