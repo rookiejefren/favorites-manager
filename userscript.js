@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.6.0
+// @version      2.7.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
@@ -756,7 +756,7 @@
 
         return favorites;
     }
-
+    // === BOOKMARK: 重要位置 ===
     // ==================== B站提取 ====================
     // 提取当前页面中的 B 站视频收藏数据
     async function extractBilibiliFavorites() {
@@ -765,6 +765,7 @@
 
         // 可能出现的收藏/视频列表 DOM 结构选择器（适配不同版本/不同页面样式）
         const selectors = [
+            '.fav-list-main .items > div',    // 新版收藏列表（bili-video-card）
             '.fav-video-list .items .item',   // 旧版收藏列表
             '.fav-list-main .items .item',    // 新版收藏列表
             'li.small-item',                  // 小卡片样式
@@ -835,8 +836,8 @@
             // 找到了明确的收藏项 DOM 列表时，从每一项中抽取信息
             items.forEach(item => {
                 try {
-                    // 优先在当前条目内找视频链接，找不到则退化为整个条目
-                    const link = item.querySelector('a[href*="/video/"], a.title') || item;
+                    // 优先查找新版卡片结构的标题链接
+                    const link = item.querySelector('.bili-video-card__title a, a[href*="/video/"], a.title') || item;
                     let url = link.href || link.querySelector('a')?.href;
 
                     // 没有 URL 直接跳过
@@ -846,21 +847,22 @@
                         url = url.startsWith('//') ? 'https:' + url : 'https://www.bilibili.com' + url;
                     }
 
-                    // 多种方式尝试获取标题：自身 title、内部 .title、内部 a 的 title 或文本
-                    let title = link.getAttribute('title') ||
+                    // 多种方式尝试获取标题
+                    let title = link.textContent ||
+                               link.getAttribute('title') ||
+                               item.querySelector('.bili-video-card__title a')?.textContent ||
                                item.querySelector('.title')?.textContent ||
                                item.querySelector('a')?.getAttribute('title') ||
-                               link.textContent ||
                                '未知标题';
 
-                    // 尝试获取 UP 主名称（不同页面结构 class 名不一样）
-                    const uploader = item.querySelector('.up-name a, .author')?.textContent || '';
+                    // 尝试获取 UP 主名称（适配新版和旧版结构）
+                    const uploader = item.querySelector('.bili-video-card__author, .up-name a, .author')?.textContent || '';
 
                     // 获取视频时长
-                    const duration = item.querySelector('.length, .duration, .time, .video-duration, span[class*="duration"]')?.textContent?.trim() || '';
+                    const duration = item.querySelector('.bili-video-card__duration, .length, .duration, .time')?.textContent?.trim() || '';
 
                     // 获取播放量
-                    const playCount = item.querySelector('.play-count, .view, .play, span[class*="play"], span[class*="view"]')?.textContent?.trim() || '';
+                    const playCount = item.querySelector('.bili-video-card__stats--item, .play-count, .view')?.textContent?.trim() || '';
 
                     // 标题去空格并截断长度
                     title = title.trim().substring(0, 100);
