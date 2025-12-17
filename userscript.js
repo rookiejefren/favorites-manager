@@ -415,12 +415,15 @@
             content += `---\n\n`;
 
             favoritesData.forEach((item, index) => {
-                content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
+                // B站使用粉丝数和时长作为链接文本，其他平台使用标题
+                if (item.platform === 'bilibili' && (item.followers || item.duration)) {
+                    const linkText = [item.followers, item.duration].filter(Boolean).join(' | ');
+                    content += `### ${index + 1}. [${linkText}](${item.url})\n\n`;
+                } else {
+                    content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
+                }
                 if (item.author || item.uploader) {
                     content += `- **作者**: ${item.author || item.uploader}\n`;
-                }
-                if (item.excerpt) {
-                    content += `- **摘要**: ${item.excerpt}\n`;
                 }
                 content += `\n`;
             });
@@ -799,12 +802,23 @@
                 // 去掉首尾空格并限制标题最长 100 字符
                 title = title.trim().substring(0, 100);
 
+                // 尝试从父级容器获取视频时长和粉丝数
+                const parentItem = link.closest('.item, .media-item, .list-item, .small-item, .fav-item');
+                let duration = '';
+                let followers = '';
+                if (parentItem) {
+                    duration = parentItem.querySelector('.length, .duration, .time, .video-duration, span[class*="duration"]')?.textContent?.trim() || '';
+                    followers = parentItem.querySelector('.up-name + span, .fans, .follower, span[class*="fans"]')?.textContent?.trim() || '';
+                }
+
                 // 只保留标题正常且确认为视频页面的链接
                 if (title && title !== '未知标题' && url.includes('/video/')) {
                     favorites.push({
                         platform: 'bilibili',                 // 平台标记
                         title: title,                          // 视频标题
                         url: url,                              // 视频链接
+                        duration: duration,                    // 视频时长
+                        followers: followers,                  // 粉丝数
                     });
                 }
             });
@@ -833,6 +847,12 @@
                     // 尝试获取 UP 主名称（不同页面结构 class 名不一样）
                     const uploader = item.querySelector('.up-name a, .author')?.textContent || '';
 
+                    // 获取视频时长
+                    const duration = item.querySelector('.length, .duration, .time, .video-duration, span[class*="duration"]')?.textContent?.trim() || '';
+
+                    // 获取粉丝数（如果有的话）
+                    const followers = item.querySelector('.up-name + span, .fans, .follower, span[class*="fans"]')?.textContent?.trim() || '';
+
                     // 标题去空格并截断长度
                     title = title.trim().substring(0, 100);
 
@@ -843,6 +863,8 @@
                             title: title,                          // 标题
                             url: url,                              // 视频链接
                             uploader: uploader.trim(),             // UP 主
+                            duration: duration,                    // 视频时长
+                            followers: followers,                  // 粉丝数
                         });
                     }
                 } catch (e) {
