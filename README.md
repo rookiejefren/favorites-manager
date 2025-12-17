@@ -10,7 +10,8 @@
 - 多种导出格式：TXT、JSON、Markdown
 - 一键复制到剪贴板
 - 自动去重
-
+## 截图展示
+![tupian](./image.png)
 ## 安装
 
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
