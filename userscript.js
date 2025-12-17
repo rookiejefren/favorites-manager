@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.5.0
+// @version      2.6.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
@@ -415,16 +415,15 @@
             content += `---\n\n`;
 
             favoritesData.forEach((item, index) => {
-                // B站使用播放量和时长作为链接文本，其他平台使用标题
-                if (item.platform === 'bilibili' && (item.playCount || item.duration)) {
-                    const linkText = [item.playCount, item.duration].filter(Boolean).join(' | ') || item.title;
+                // B站使用标题和作者作为链接文本
+                if (item.platform === 'bilibili') {
+                    const linkText = [item.title, item.uploader].filter(Boolean).join(' | ');
                     content += `### ${index + 1}. [${linkText}](${item.url})\n\n`;
-                    content += `- **标题**: ${item.title}\n`;
                 } else {
                     content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
-                }
-                if (item.author || item.uploader) {
-                    content += `- **作者**: ${item.author || item.uploader}\n`;
+                    if (item.author || item.uploader) {
+                        content += `- **作者**: ${item.author || item.uploader}\n`;
+                    }
                 }
                 content += `\n`;
             });
