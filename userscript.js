@@ -415,15 +415,18 @@
             content += `---\n\n`;
 
             favoritesData.forEach((item, index) => {
-                // B站使用粉丝数和时长作为链接文本，其他平台使用标题
-                if (item.platform === 'bilibili' && (item.followers || item.duration)) {
-                    const linkText = [item.followers, item.duration].filter(Boolean).join(' | ');
-                    content += `### ${index + 1}. [${linkText}](${item.url})\n\n`;
-                } else {
-                    content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
-                }
+                content += `### ${index + 1}. [${item.title}](${item.url})\n\n`;
                 if (item.author || item.uploader) {
                     content += `- **作者**: ${item.author || item.uploader}\n`;
+                }
+                // B站显示粉丝数和时长
+                if (item.platform === 'bilibili') {
+                    if (item.followers) {
+                        content += `- **粉丝数**: ${item.followers}\n`;
+                    }
+                    if (item.duration) {
+                        content += `- **时长**: ${item.duration}\n`;
+                    }
                 }
                 content += `\n`;
             });
