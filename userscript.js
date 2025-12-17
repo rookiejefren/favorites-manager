@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         收藏夹管理器 - 抖音/B站/知乎
 // @namespace    http://tampermonkey.net/
-// @version      2.7.0
+// @version      2.9.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
 // @author       You
 // @match        *://www.douyin.com/*
@@ -677,19 +677,37 @@
     async function extractDouyinFavorites() {
         const favorites = [];
 
+        // 尝试先定位收藏列表容器，避免提取非收藏内容
+        const containerSelectors = [
+            '[data-e2e="user-collection-list"]',   // 收藏列表容器
+            '[data-e2e="user-like-list"]',         // 喜欢列表容器
+            '.user-collection-container',
+            '.favorite-list',
+            'main'                                  // 兜底使用main
+        ];
+
+        let container = null;
+        for (const sel of containerSelectors) {
+            container = document.querySelector(sel);
+            if (container) {
+                console.log(`[抖音] 使用容器: ${sel}`);
+                break;
+            }
+        }
+        container = container || document;
+
         const selectors = [
             'div[data-e2e="user-post-item"]',
             'li[data-e2e="scroll-list-item"]',
             '.video-list-item',
             '.ECMagazine',
             'div[class*="DyVideoCard"]',
-            'div[class*="video-card"]',
-            'a[href*="/video/"]'
+            'div[class*="video-card"]'
         ];
 
         let items = [];
         for (const selector of selectors) {
-            items = document.querySelectorAll(selector);
+            items = container.querySelectorAll(selector);
             if (items.length > 0) {
                 console.log(`[抖音] 使用选择器: ${selector}, 找到 ${items.length} 个元素`);
                 break;
@@ -698,25 +716,27 @@
 
         // 清理标题：去除换行符、多余空格，只保留第一行作为标题
         function cleanTitle(text) {
-            if (!text) return '未知标题';
+            if (!text) return null;
             // 按换行符分割，取第一行作为标题
             const firstLine = text.split(/[\r\n]+/)[0];
             // 去除多余空格，限制长度
-            return firstLine.trim().substring(0, 100) || '未知标题';
+            const cleaned = firstLine.trim().substring(0, 100);
+            return cleaned || null;
         }
 
         if (items.length === 0) {
-            const allLinks = document.querySelectorAll('a[href*="/video/"]');
+            // 兜底：在容器内查找视频链接
+            const allLinks = container.querySelectorAll('a[href*="/video/"]');
             allLinks.forEach(link => {
                 const url = link.href;
                 let title = link.getAttribute('title') ||
                            link.querySelector('p, span, div')?.textContent ||
-                           link.textContent ||
-                           '未知标题';
+                           null;
 
                 title = cleanTitle(title);
 
-                if (url && !favorites.find(f => f.url === url)) {
+                // 过滤掉没有标题的内容
+                if (url && title && !favorites.find(f => f.url === url)) {
                     favorites.push({
                         platform: 'douyin',
                         title: title,
@@ -737,11 +757,12 @@
                                item.querySelector('span[class*="title"]')?.textContent ||
                                item.getAttribute('title') ||
                                link.getAttribute('title') ||
-                               '未知标题';
+                               null;
 
                     title = cleanTitle(title);
 
-                    if (!favorites.find(f => f.url === url)) {
+                    // 过滤掉没有标题的内容
+                    if (title && !favorites.find(f => f.url === url)) {
                         favorites.push({
                             platform: 'douyin',
                             title: title,
@@ -837,8 +858,9 @@
             items.forEach(item => {
                 try {
                     // 优先查找新版卡片结构的标题链接
-                    const link = item.querySelector('.bili-video-card__title a, a[href*="/video/"], a.title') || item;
-                    let url = link.href || link.querySelector('a')?.href;
+                    const titleLink = item.querySelector('.bili-video-card__title a');
+                    const link = titleLink || item.querySelector('a[href*="/video/"], a.title') || item;
+                    let url = link.href || item.querySelector('a[href*="/video/"]')?.href;
 
                     // 没有 URL 直接跳过
                     if (!url) return;
@@ -847,16 +869,21 @@
                         url = url.startsWith('//') ? 'https:' + url : 'https://www.bilibili.com' + url;
                     }
 
-                    // 多种方式尝试获取标题
-                    let title = link.textContent ||
+                    // 精确获取标题：优先从标题链接元素获取
+                    let title = '未知标题';
+                    if (titleLink) {
+                        // 新版卡片：直接获取标题链接的文本
+                        title = titleLink.textContent || titleLink.getAttribute('title') || '未知标题';
+                    } else {
+                        // 旧版结构
+                        title = item.querySelector('.title')?.textContent ||
                                link.getAttribute('title') ||
-                               item.querySelector('.bili-video-card__title a')?.textContent ||
-                               item.querySelector('.title')?.textContent ||
-                               item.querySelector('a')?.getAttribute('title') ||
                                '未知标题';
+                    }
 
                     // 尝试获取 UP 主名称（适配新版和旧版结构）
-                    const uploader = item.querySelector('.bili-video-card__author, .up-name a, .author')?.textContent || '';
+                    const uploaderEl = item.querySelector('.bili-video-card__author, .up-name a, .author');
+                    const uploader = uploaderEl?.textContent?.split('·')[0] || '';  // 去除"· 收藏于xx"部分
 
                     // 获取视频时长
                     const duration = item.querySelector('.bili-video-card__duration, .length, .duration, .time')?.textContent?.trim() || '';
