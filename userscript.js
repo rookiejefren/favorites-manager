@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.0.0
 // @description  提取抖音、B站、知乎收藏夹内容，支持多页加载，导出URL和名称
-// @author       You
+// @author       rookiejefren
 // @match        *://www.douyin.com/*
 // @match        *://space.bilibili.com/*
 // @match        *://www.bilibili.com/*
